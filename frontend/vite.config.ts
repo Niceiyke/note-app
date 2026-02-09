@@ -13,6 +13,9 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173,
+    allowedHosts: [
+      'note-app-web.wordlyte.com'
+    ],
     watch: {
       usePolling: true
     }

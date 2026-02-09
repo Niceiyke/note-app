@@ -9,18 +9,25 @@ services:
       - POSTGRES_USER=user
       - POSTGRES_PASSWORD=password
       - POSTGRES_DB=notes_db
-    ports:
-      - "5432:5432"
+    networks:
+      - internal
 
   backend:
     build: ./backend
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
       - ./backend:/app
-    ports:
-      - "8000:8000"
     environment:
       - DATABASE_URL=postgresql+asyncpg://user:password@db/notes_db
+    networks:
+      - internal
+      - edge
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.note-app-backend.rule=Host(`note-app.wordlyte.com`)"
+      - "traefik.http.routers.note-app-backend.entrypoints=websecure"
+      - "traefik.http.routers.note-app-backend.tls.certresolver=myresolver"
+      - "traefik.http.services.note-app-backend.loadbalancer.server.port=8000"
     depends_on:
       - db
 
@@ -29,12 +36,22 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
-    ports:
-      - "5173:5173"
-    environment:
-      - VITE_API_URL=http://localhost:8000
+    networks:
+      - internal
+      - edge
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.note-app-frontend.rule=Host(`note-app-web.wordlyte.com`)"
+      - "traefik.http.routers.note-app-frontend.entrypoints=websecure"
+      - "traefik.http.routers.note-app-frontend.tls.certresolver=myresolver"
+      - "traefik.http.services.note-app-frontend.loadbalancer.server.port=5173"
     depends_on:
       - backend
+
+networks:
+  internal:
+  edge:
+    external: true
 
 volumes:
   postgres_data:

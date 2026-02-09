@@ -23,7 +23,10 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan, title="Note Taking API")
 
-origins = ["*"]
+origins = [
+    "http://localhost:5173",
+    "https://note-app-web.wordlyte.com",
+]
 
 app.add_middleware(
     CORSMiddleware,
