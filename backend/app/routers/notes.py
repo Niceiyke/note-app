@@ -39,3 +39,18 @@ async def delete_note(note_id: int, db: AsyncSession = Depends(get_db)):
     await db.delete(note)
     await db.commit()
     return {"ok": True}
+
+@router.put("/{note_id}", response_model=NoteSchema)
+async def update_note(note_id: int, note_update: NoteUpdate, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Note).filter(Note.id == note_id))
+    db_note = result.scalars().first()
+    if db_note is None:
+        raise HTTPException(status_code=404, detail="Note not found")
+    
+    update_data = note_update.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_note, key, value)
+    
+    await db.commit()
+    await db.refresh(db_note)
+    return db_note
