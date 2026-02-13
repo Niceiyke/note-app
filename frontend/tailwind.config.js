@@ -23,53 +23,44 @@ module.exports = {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         primary: {
-          DEFAULT: "#3e2723", // Leather
-          foreground: "#f4e4bc", // Parchment
+          DEFAULT: "hsl(var(--primary))",
+          foreground: "hsl(var(--primary-foreground))",
         },
         secondary: {
-          DEFAULT: "#f4e4bc", // Parchment
-          foreground: "#3e2723", // Leather
-        },
-        accent: {
-          DEFAULT: "#d4af37", // Gold
-          foreground: "#3e2723",
+          DEFAULT: "hsl(var(--secondary))",
+          foreground: "hsl(var(--secondary-foreground))",
         },
         destructive: {
-          DEFAULT: "#800000", // Crimson
-          foreground: "#f4e4bc",
+          DEFAULT: "hsl(var(--destructive))",
+          foreground: "hsl(var(--destructive-foreground))",
         },
         muted: {
-          DEFAULT: "#a1887f",
-          foreground: "#3e2723",
+          DEFAULT: "hsl(var(--muted))",
+          foreground: "hsl(var(--muted-foreground))",
+        },
+        accent: {
+          DEFAULT: "hsl(var(--accent))",
+          foreground: "hsl(var(--accent-foreground))",
         },
         popover: {
-          DEFAULT: "#f4e4bc",
-          foreground: "#3e2723",
+          DEFAULT: "hsl(var(--popover))",
+          foreground: "hsl(var(--popover-foreground))",
         },
         card: {
-          DEFAULT: "#f4e4bc",
-          foreground: "#3e2723",
+          DEFAULT: "hsl(var(--card))",
+          foreground: "hsl(var(--card-foreground))",
         },
-        rpg: {
-          parchment: "#f4e4bc",
-          leather: "#3e2723",
-          gold: "#d4af37",
-          crimson: "#800000",
-          ink: "#2c2c2c",
-        },
-      },
-      boxShadow: {
-        soft: "0 10px 15px -3px rgba(62, 39, 35, 0.1), 0 4px 6px -2px rgba(62, 39, 35, 0.1)",
-        glow: "0 0 15px -2px rgba(212, 175, 55, 0.6)", // Gold glow
-      },
-      fontFamily: {
-        sans: ["Lato", "sans-serif"],
-        rpg: ["Cinzel", "serif"],
       },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+      },
+      fontFamily: {
+        sans: ["Inter", "sans-serif"],
+      },
+      boxShadow: {
+        soft: "0 2px 15px -3px rgba(0, 0, 0, 0.07), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
       },
     },
   },

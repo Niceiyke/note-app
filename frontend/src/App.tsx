@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Trash2, Scroll, Sword, Shield, Skull, Crown, CheckCircle2, Circle, Search, Filter } from 'lucide-react'
+import { Plus, Trash2, StickyNote, Check, CheckCircle2, Circle, Filter } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from './components/ui/button'
 import { Input } from './components/ui/input'
@@ -18,7 +18,7 @@ interface Note {
 
 const API_URL = 'https://note-app.wordlyte.com/api/notes/'
 
-const CATEGORIES = ["Main Quest", "Side Quest", "Lore", "Inventory", "NPCs"]
+const CATEGORIES = ["Work", "Personal", "Ideas", "Tasks", "Reference"]
 
 function App() {
   const queryClient = useQueryClient()
@@ -27,10 +27,6 @@ function App() {
   const [category, setCategory] = useState(CATEGORIES[0])
   const [filter, setFilter] = useState("All")
   
-  const [editingId, setEditingId] = useState<number | null>(null)
-  const [editTitle, setEditTitle] = useState('')
-  const [editContent, setEditContent] = useState('')
-
   const { data: notes, isLoading } = useQuery<Note[]>({
     queryKey: ['notes'],
     queryFn: async () => {
@@ -41,13 +37,6 @@ function App() {
       return response.json()
     }
   })
-
-  // Calculate RPG Stats
-  const completedNotes = notes?.filter(n => n.completed).length || 0
-  const totalXP = completedNotes * 10
-  const level = Math.floor(totalXP / 100) + 1
-  const nextLevelXP = level * 100
-  const progress = ((totalXP % 100) / 100) * 100
 
   const createNoteMutation = useMutation({
     mutationFn: async (newNote: { title: string; content: string; category: string }) => {
@@ -81,7 +70,6 @@ function App() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notes'] })
-      setEditingId(null)
     },
   })
 
@@ -114,53 +102,25 @@ function App() {
   })
 
   return (
-    <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 font-sans text-primary">
-      <div className="mx-auto max-w-7xl space-y-12">
+    <div className="min-h-screen py-8 px-4 sm:px-6 lg:px-8 font-sans bg-background text-foreground">
+      <div className="mx-auto max-w-7xl space-y-8">
         
         {/* Header Section */}
-        <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b-4 border-double border-primary/20 pb-8">
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-border pb-8">
           <motion.div 
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="space-y-2"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-1"
           >
-            <div className="flex items-center gap-4">
-              <div className="p-4 bg-primary text-secondary rounded-lg shadow-lg border-2 border-secondary">
-                <Scroll className="h-10 w-10" />
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-primary text-primary-foreground rounded-xl shadow-sm">
+                <StickyNote className="h-8 w-8" />
               </div>
               <div>
-                <h1 className="text-5xl font-rpg font-bold tracking-wider text-primary drop-shadow-sm">
-                  Quest Log
+                <h1 className="text-3xl font-bold tracking-tight text-foreground">
+                  Note App
                 </h1>
-                <p className="text-lg font-rpg text-primary/70 font-semibold ml-1 tracking-wide">Manage your adventures.</p>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Stats Bar */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="flex items-center gap-6 bg-card/50 backdrop-blur-sm p-4 rounded-lg border-2 border-primary/30 shadow-md min-w-[300px]"
-          >
-            <div className="flex flex-col items-center justify-center px-4 border-r-2 border-primary/20">
-              <span className="text-xs font-rpg font-bold text-primary/60 uppercase">Level</span>
-              <span className="text-4xl font-rpg font-bold text-destructive">{level}</span>
-            </div>
-            <div className="flex-grow space-y-2">
-              <div className="flex justify-between text-xs font-bold font-rpg uppercase text-primary/70">
-                <span>Experience</span>
-                <span>{totalXP} / {nextLevelXP} XP</span>
-              </div>
-              <div className="h-4 w-full bg-primary/10 rounded-full overflow-hidden border border-primary/20 relative">
-                <motion.div 
-                  initial={{ width: 0 }}
-                  animate={{ width: `${progress}%` }}
-                  transition={{ duration: 1, ease: "easeOut" }}
-                  className="h-full bg-gradient-to-r from-secondary to-accent relative"
-                >
-                    <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
-                </motion.div>
+                <p className="text-muted-foreground font-medium">Stay organized and productive.</p>
               </div>
             </div>
           </motion.div>
@@ -173,37 +133,34 @@ function App() {
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.1 }}
-            className="lg:col-span-4 space-y-8"
+            className="lg:col-span-4"
           >
-            <Card className="sticky top-8 border-4 border-primary/80 bg-card shadow-xl overflow-hidden rounded-lg">
-              <div className="absolute top-0 left-0 w-full h-2 bg-primary" />
-              <div className="absolute bottom-0 left-0 w-full h-2 bg-primary" />
-              <CardHeader className="bg-primary/5 pb-6 border-b border-primary/10">
-                <div className="flex items-center gap-3">
-                  <Sword className="h-6 w-6 text-destructive rotate-45" />
-                  <CardTitle className="text-2xl font-rpg text-primary">New Quest</CardTitle>
-                </div>
-                <CardDescription className="font-sans text-primary/60 italic">Define your next objective.</CardDescription>
+            <Card className="border border-border bg-card shadow-sm rounded-xl overflow-hidden">
+              <CardHeader className="space-y-1">
+                <CardTitle className="text-xl font-bold flex items-center gap-2">
+                  <Plus className="h-5 w-5 text-accent" />
+                  New Note
+                </CardTitle>
+                <CardDescription>Capture your thoughts and tasks.</CardDescription>
               </CardHeader>
-              <CardContent className="pt-6">
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  <div className="space-y-2">
-                    <label className="text-xs font-rpg font-bold text-primary uppercase tracking-widest ml-1">Objective Title</label>
+              <CardContent>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-semibold text-foreground">Note Title</label>
                     <Input
-                      placeholder="e.g., Slay the Bug..."
+                      placeholder="Enter title..."
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
-                      className="h-12 bg-white/50 border-2 border-primary/20 focus:border-accent focus:ring-accent transition-all rounded-md font-rpg text-lg placeholder:text-primary/30"
+                      className="bg-background border-border focus:ring-accent"
                     />
                   </div>
                   
-                  <div className="space-y-2">
-                     <label className="text-xs font-rpg font-bold text-primary uppercase tracking-widest ml-1">Quest Type</label>
+                  <div className="space-y-1.5">
+                     <label className="text-sm font-semibold text-foreground">Category</label>
                      <select 
                         value={category} 
                         onChange={(e) => setCategory(e.target.value)}
-                        className="w-full h-12 px-3 bg-white/50 border-2 border-primary/20 rounded-md font-rpg text-primary focus:outline-none focus:border-accent appearance-none cursor-pointer"
-                        style={{ backgroundImage: 'none' }} // Remove default arrow if customized
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                      >
                         {CATEGORIES.map(cat => (
                             <option key={cat} value={cat}>{cat}</option>
@@ -211,19 +168,19 @@ function App() {
                      </select>
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-xs font-rpg font-bold text-primary uppercase tracking-widest ml-1">Details</label>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-semibold text-foreground">Content</label>
                     <Textarea
-                      placeholder="Describe the task..."
+                      placeholder="Write your note here..."
                       value={content}
                       onChange={(e) => setContent(e.target.value)}
-                      className="bg-white/50 border-2 border-primary/20 focus:border-accent focus:ring-accent transition-all rounded-md min-h-[160px] resize-none font-sans text-primary/80"
+                      className="bg-background border-border focus:ring-accent min-h-[120px] resize-none"
                     />
                   </div>
-                  <Button type="submit" disabled={createNoteMutation.isPending} className="w-full h-14 rounded-md text-lg font-rpg tracking-wider bg-primary text-secondary hover:bg-primary/90 hover:text-white border-2 border-secondary shadow-md transition-all active:scale-95">
-                    {createNoteMutation.isPending ? 'Scribing...' : (
+                  <Button type="submit" disabled={createNoteMutation.isPending} className="w-full h-11 rounded-lg text-base font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-all">
+                    {createNoteMutation.isPending ? 'Saving...' : (
                       <span className="flex items-center gap-2">
-                        <Crown className="h-5 w-5" /> Accept Quest
+                        <Check className="h-4 w-4" /> Create Note
                       </span>
                     )}
                   </Button>
@@ -233,19 +190,21 @@ function App() {
           </motion.div>
 
           {/* List Section (Right Column) */}
-          <div className="lg:col-span-8 space-y-8">
+          <div className="lg:col-span-8 space-y-6">
             
             {/* Filter Bar */}
-            <div className="flex flex-wrap items-center gap-4 bg-primary/5 p-4 rounded-lg border border-primary/10">
-                <Filter className="h-5 w-5 text-primary/50" />
+            <div className="flex flex-wrap items-center gap-2 bg-muted/30 p-2 rounded-xl border border-border overflow-x-auto no-scrollbar">
+                <div className="px-3 py-1.5 text-muted-foreground">
+                    <Filter className="h-4 w-4" />
+                </div>
                 {["All", "Active", "Completed", ...CATEGORIES].map(f => (
                     <button
                         key={f}
                         onClick={() => setFilter(f)}
-                        className={`px-4 py-1.5 rounded-full text-xs font-rpg font-bold uppercase tracking-wider transition-all
+                        className={`px-4 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all
                             ${filter === f 
-                                ? 'bg-primary text-secondary shadow-md scale-105' 
-                                : 'bg-white/50 text-primary/60 hover:bg-primary/10'
+                                ? 'bg-primary text-primary-foreground shadow-sm' 
+                                : 'bg-background text-muted-foreground hover:bg-muted border border-border'
                             }`}
                     >
                         {f}
@@ -253,20 +212,20 @@ function App() {
                 ))}
             </div>
 
-            <div className="grid gap-6 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2">
               <AnimatePresence mode="popLayout">
                 {isLoading ? (
                   [1, 2, 3, 4].map((i) => (
-                    <div key={i} className="h-64 rounded-lg bg-primary/5 animate-pulse border-2 border-primary/10" />
+                    <div key={i} className="h-48 rounded-xl bg-muted animate-pulse border border-border" />
                   ))
                 ) : filteredNotes?.length === 0 ? (
                   <motion.div 
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className="col-span-full py-20 text-center rounded-lg border-2 border-dashed border-primary/20 bg-primary/5"
+                    className="col-span-full py-16 text-center rounded-xl border-2 border-dashed border-border bg-muted/10"
                   >
-                    <Shield className="h-16 w-16 text-primary/20 mx-auto mb-4" />
-                    <p className="text-xl font-rpg font-bold text-primary/40">No quests found.</p>
+                    <StickyNote className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
+                    <p className="text-lg font-semibold text-muted-foreground">No notes found.</p>
                   </motion.div>
                 ) : filteredNotes?.map((note, index) => (
                   <motion.div
@@ -275,52 +234,45 @@ function App() {
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ duration: 0.3, delay: index * 0.05 }}
+                    transition={{ duration: 0.2, delay: index * 0.03 }}
                   >
-                    <Card className={`group relative h-full flex flex-col transition-all duration-300 hover:shadow-xl hover:-translate-y-1 overflow-hidden rounded-sm
-                        ${note.completed ? 'opacity-70 bg-primary/5 grayscale-[0.5]' : 'bg-card'}
-                        border-2 border-primary/30
+                    <Card className={`group relative h-full flex flex-col transition-all duration-200 hover:shadow-md rounded-xl overflow-hidden
+                        ${note.completed ? 'bg-muted/30' : 'bg-card'}
+                        border border-border
                     `}>
-                        {/* Decorative Corners */}
-                        <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-primary/40 rounded-tl-lg" />
-                        <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-primary/40 rounded-tr-lg" />
-                        <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-primary/40 rounded-bl-lg" />
-                        <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-primary/40 rounded-br-lg" />
-
-                      <CardHeader className="pb-3 pt-6 px-6 relative z-10">
+                      <CardHeader className="pb-2 pt-5 px-5">
                         <div className="flex items-start justify-between gap-4">
-                            <div className="space-y-1">
-                                <span className={`inline-block px-2 py-0.5 text-[10px] font-rpg font-bold uppercase tracking-widest rounded-sm border border-primary/20
-                                    ${note.category === 'Main Quest' ? 'bg-destructive/10 text-destructive' : 'bg-primary/10 text-primary'}
-                                `}>
-                                    {note.category}
-                                </span>
-                                <CardTitle className={`text-xl font-rpg leading-tight text-primary transition-colors line-clamp-2 ${note.completed ? 'line-through decoration-primary/50' : ''}`}>
+                            <div className="space-y-1.5 min-w-0">
+                                <div className="flex items-center gap-2">
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-accent/10 text-accent border border-accent/20">
+                                        {note.category}
+                                    </span>
+                                </div>
+                                <CardTitle className={`text-lg font-bold leading-tight text-foreground transition-colors line-clamp-2 ${note.completed ? 'line-through text-muted-foreground' : ''}`}>
                                     {note.title}
                                 </CardTitle>
                             </div>
-                            <button onClick={() => toggleComplete(note)} className="transition-transform active:scale-90">
+                            <button onClick={() => toggleComplete(note)} className="shrink-0 transition-transform active:scale-90 mt-1">
                                 {note.completed ? (
-                                    <CheckCircle2 className="h-8 w-8 text-primary/60" />
+                                    <CheckCircle2 className="h-6 w-6 text-accent" />
                                 ) : (
-                                    <Circle className="h-8 w-8 text-primary/20 hover:text-accent transition-colors" />
+                                    <Circle className="h-6 w-6 text-muted-foreground/30 hover:text-accent transition-colors" />
                                 )}
                             </button>
                         </div>
                       </CardHeader>
                       
-                      <CardContent className="flex-grow px-6 pb-6 relative z-10">
-                        <p className={`whitespace-pre-wrap font-sans leading-relaxed text-sm text-primary/80 ${note.completed ? 'line-through decoration-primary/30' : ''}`}>
+                      <CardContent className="flex-grow px-5 pb-5">
+                        <p className={`whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground line-clamp-4 ${note.completed ? 'line-through opacity-50' : ''}`}>
                           {note.content}
                         </p>
                       </CardContent>
 
-                      {/* Actions */}
-                      <div className="absolute bottom-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                      <div className="absolute bottom-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive rounded-full"
+                            className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive rounded-lg"
                             onClick={() => deleteNoteMutation.mutate(note.id)}
                           >
                             <Trash2 className="h-4 w-4" />
