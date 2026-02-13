@@ -5,6 +5,8 @@ from typing import Optional
 class NoteBase(BaseModel):
     title: str
     content: str
+    category: Optional[str] = "General"
+    completed: Optional[bool] = False
 
 class NoteCreate(NoteBase):
     pass
@@ -12,6 +14,8 @@ class NoteCreate(NoteBase):
 class NoteUpdate(BaseModel):
     title: Optional[str] = None
     content: Optional[str] = None
+    category: Optional[str] = None
+    completed: Optional[bool] = None
 
 class Note(NoteBase):
     id: int

@@ -10,7 +10,7 @@ router = APIRouter()
 
 @router.post("/", response_model=NoteSchema)
 async def create_note(note: NoteCreate, db: AsyncSession = Depends(get_db)):
-    db_note = Note(title=note.title, content=note.content)
+    db_note = Note(**note.model_dump())
     db.add(db_note)
     await db.commit()
     await db.refresh(db_note)

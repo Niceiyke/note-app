@@ -1,12 +1,12 @@
 version: '3.8'
 
 services:
-  db:
+  note-app-db:
     image: postgres:15-alpine
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
-      - POSTGRES_USER=user
+      - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=password
       - POSTGRES_DB=notes_db
     networks:
@@ -18,7 +18,7 @@ services:
     volumes:
       - ./backend:/app
     environment:
-      - DATABASE_URL=postgresql+asyncpg://user:password@db/notes_db
+      - DATABASE_URL=postgresql+asyncpg://postgres:password@note-app-db/notes_db
     networks:
       - internal
       - edge
@@ -29,7 +29,7 @@ services:
       - "traefik.http.routers.note-app-backend.tls.certresolver=myresolver"
       - "traefik.http.services.note-app-backend.loadbalancer.server.port=8000"
     depends_on:
-      - db
+      - note-app-db
 
   frontend:
     build: ./frontend
