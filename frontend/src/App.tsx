@@ -1,8 +1,8 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { 
   Trash2, StickyNote, CheckCircle2, 
-  Briefcase, Home, Lightbulb, CheckSquare, BookOpen, Plus, X, Calendar
+  Briefcase, Home, Lightbulb, CheckSquare, BookOpen, Plus, X, Calendar, Send
 } from 'lucide-react'
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion'
 import { Button } from './components/ui/button'
@@ -31,7 +31,7 @@ const CATEGORIES = [
   { name: "Reference", icon: BookOpen },
 ]
 
-function NoteCard({ note, toggleComplete, deleteNote }: { note: Note, toggleComplete: (n: Note) => void, deleteNote: (id: number) => void }) {
+function NoteCard({ note, toggleComplete, deleteNote, onEdit }: { note: Note, toggleComplete: (n: Note) => void, deleteNote: (id: number) => void, onEdit: (n: Note) => void }) {
   const x = useMotionValue(0)
   const rotate = useTransform(x, [-100, 100], [-5, 5])
   const [isSelected, setIsSelected] = useState(false)
@@ -114,6 +114,14 @@ function NoteCard({ note, toggleComplete, deleteNote }: { note: Note, toggleComp
                     <Button
                     variant="ghost"
                     size="icon"
+                    className="h-8 w-8 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-colors"
+                    onClick={(e) => { e.stopPropagation(); onEdit(note); }}
+                    >
+                    <StickyNote className="h-4 w-4" />
+                    </Button>
+                    <Button
+                    variant="ghost"
+                    size="icon"
                     className="h-8 w-8 hover:bg-red-50 hover:text-red-500 rounded-lg transition-colors"
                     onClick={(e) => { e.stopPropagation(); deleteNote(note.id); }}
                     >
@@ -137,6 +145,8 @@ function App() {
   const [statusFilter, setStatusFilter] = useState<"All" | "Active" | "Completed">("All")
   const [categoryFilter, setCategoryFilter] = useState<string>("All")
   const [isFormOpen, setIsFormOpen] = useState(false)
+  const [editingNote, setEditingNote] = useState<Note | null>(null)
+  const [isReportOpen, setIsReportOpen] = useState(false)
   
   const { data: notes, isLoading } = useQuery<Note[]>({
     queryKey: ['notes'],
@@ -150,42 +160,49 @@ function App() {
   })
 
   const createNoteMutation = useMutation({
-    mutationFn: async (newNote: { title: string; content: string; category: string; due_date?: string }) => {
+    mutationFn: async (newNote: { title: string; content: string; category: string; due_date?: string; autoSave?: boolean }) => {
+      const { autoSave, ...payload } = newNote
       const response = await fetch(API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(newNote),
+        body: JSON.stringify(payload),
       })
-      return response.json()
+      const data = await response.json()
+      return { ...data, autoSave }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['notes'] })
-      setTitle('')
-      setContent('')
-      setCategory(CATEGORIES[0].name)
-      setDueDate('')
-      setIsFormOpen(false)
-      toast.success('Note created successfully')
+      if (!data.autoSave) {
+        handleCloseForm()
+        toast.success('Note created successfully')
+      } else {
+        setEditingNote(data)
+      }
     },
   })
 
   const updateNoteMutation = useMutation({
-    mutationFn: async (updatedNote: { id: number; title?: string; content?: string; completed?: boolean }) => {
+    mutationFn: async (updatedNote: { id: number; title?: string; content?: string; category?: string; due_date?: string; completed?: boolean; autoSave?: boolean }) => {
+      const { autoSave, ...payload } = updatedNote
       const response = await fetch(`${API_URL}/${updatedNote.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(updatedNote),
+        body: JSON.stringify(payload),
       })
-      return response.json()
+      const data = await response.json()
+      return { ...data, autoSave }
     },
-    onSuccess: (_, variables) => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['notes'] })
       if (variables.completed !== undefined) {
         toast.success(variables.completed ? 'Note completed' : 'Note active')
+      } else if (!data.autoSave) {
+        handleCloseForm()
+        toast.success('Note updated successfully')
       }
     },
   })
@@ -198,17 +215,83 @@ function App() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notes'] })
-      toast.success('Note deleted', {
-        action: {
-          label: 'Undo',
-          onClick: () => console.log('Undo delete not implemented in backend yet')
-        }
-      })
+      toast.success('Note deleted')
     },
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+  const [isAutoSaving, setIsAutoSaving] = useState(false)
+
+  // Auto-save effect
+  useEffect(() => {
+    if (!isFormOpen || !title.trim() || !content.trim()) return
+
+    const timer = setTimeout(() => {
+      setIsAutoSaving(true)
+      
+      let formattedContent = content
+      if (category === "Tasks") {
+        formattedContent = content.split('\n').map(line => {
+          const trimmed = line.trim()
+          if (trimmed && !trimmed.startsWith('•') && !trimmed.startsWith('-') && !trimmed.startsWith('*')) {
+            return `• ${trimmed}`
+          }
+          return line
+        }).join('\n')
+      }
+
+      if (editingNote) {
+        updateNoteMutation.mutate({ 
+          id: editingNote.id,
+          title, 
+          content: formattedContent, 
+          category,
+          due_date: dueDate || undefined,
+          autoSave: true
+        })
+      } else {
+        createNoteMutation.mutate({ 
+          title, 
+          content: formattedContent, 
+          category,
+          due_date: dueDate || undefined,
+          autoSave: true
+        })
+      }
+      
+      setTimeout(() => setIsAutoSaving(false), 1500)
+    }, 3000)
+
+    return () => clearTimeout(timer)
+  }, [title, content, category, dueDate, isFormOpen])
+
+  const handleOpenForm = (note?: Note) => {
+    if (note) {
+      setEditingNote(note)
+      setTitle(note.title)
+      setContent(note.content)
+      setCategory(note.category)
+      setDueDate(note.due_date ? note.due_date.substring(0, 16) : '')
+    } else {
+      setEditingNote(null)
+      setTitle('')
+      setContent('')
+      setCategory(CATEGORIES[0].name)
+      setDueDate('')
+    }
+    setIsFormOpen(true)
+  }
+
+  const handleCloseForm = () => {
+    setIsFormOpen(false)
+    setEditingNote(null)
+    setTitle('')
+    setContent('')
+    setCategory(CATEGORIES[0].name)
+    setDueDate('')
+  }
+
+  const handleSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
     if (!title.trim() || !content.trim()) return
     
     let formattedContent = content
@@ -222,12 +305,24 @@ function App() {
       }).join('\n')
     }
 
-    createNoteMutation.mutate({ 
-      title, 
-      content: formattedContent, 
-      category,
-      due_date: dueDate || undefined
-    })
+    if (editingNote) {
+      updateNoteMutation.mutate({ 
+        id: editingNote.id,
+        title, 
+        content: formattedContent, 
+        category,
+        due_date: dueDate || undefined,
+        autoSave: false
+      })
+    } else {
+      createNoteMutation.mutate({ 
+        title, 
+        content: formattedContent, 
+        category,
+        due_date: dueDate || undefined,
+        autoSave: false
+      })
+    }
   }
 
   const toggleComplete = (note: Note) => {
@@ -265,6 +360,14 @@ function App() {
         <div className="mx-auto max-w-5xl px-4 h-16 flex items-center justify-between">
             <h1 className="text-xl font-black tracking-tight text-slate-900">NOTES</h1>
             <div className="flex items-center gap-4">
+                <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => setIsReportOpen(true)}
+                    className="text-[10px] font-bold text-slate-600 uppercase tracking-widest hover:bg-slate-100"
+                >
+                    Report
+                </Button>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                     {filteredNotes?.length || 0} Total
                 </span>
@@ -366,6 +469,7 @@ function App() {
                     note={note} 
                     toggleComplete={toggleComplete} 
                     deleteNote={(id) => deleteNoteMutation.mutate(id)} 
+                    onEdit={(n) => handleOpenForm(n)}
                 />
               </motion.div>
             ))}
@@ -375,7 +479,7 @@ function App() {
 
       {/* Floating Action Button */}
       <button 
-        onClick={() => setIsFormOpen(true)}
+        onClick={() => handleOpenForm()}
         aria-label="Create Note"
         className="fixed bottom-8 right-8 h-16 w-16 bg-slate-900 text-white rounded-2xl shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-40 group"
       >
@@ -402,9 +506,13 @@ function App() {
                 >
                     <div className="p-8">
                         <div className="flex items-center justify-between mb-8">
-                            <h2 className="text-2xl font-black text-slate-900">NEW NOTE</h2>
+                            <div className="flex flex-col">
+                                <h2 className="text-2xl font-black text-slate-900">{editingNote ? 'EDIT' : 'NEW'} NOTE</h2>
+                                {isAutoSaving && <span className="text-[10px] font-black text-emerald-500 animate-pulse tracking-widest">AUTOSAVING DRAFT...</span>}
+                            </div>
                             <button 
-                                onClick={() => setIsFormOpen(false)}
+                                onClick={handleCloseForm}
+                                aria-label="Close"
                                 className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center hover:bg-slate-200 transition-colors"
                             >
                                 <X className="h-5 w-5 text-slate-500" />
@@ -515,6 +623,97 @@ function App() {
                                 </Button>
                             </div>
                         </form>
+                    </div>
+                </motion.div>
+            </>
+        )}
+      </AnimatePresence>
+
+      {/* Report Overlay */}
+      <AnimatePresence>
+        {isReportOpen && (
+            <>
+                <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={() => setIsReportOpen(false)}
+                    className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50"
+                />
+                <motion.div 
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.9, opacity: 0 }}
+                    className="fixed inset-4 md:inset-auto md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 z-50 bg-white rounded-[32px] shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden flex flex-col max-h-[80vh]"
+                >
+                    <div className="p-8 flex-grow overflow-y-auto">
+                        <div className="flex items-center justify-between mb-8 sticky top-0 bg-white pb-2">
+                            <h2 className="text-2xl font-black text-slate-900">TASK SUMMARY</h2>
+                            <button 
+                                onClick={() => setIsReportOpen(false)}
+                                className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center hover:bg-slate-200 transition-colors"
+                            >
+                                <X className="h-5 w-5 text-slate-500" />
+                            </button>
+                        </div>
+
+                        <div className="space-y-6">
+                            {notes?.filter(n => n.category === "Tasks").length === 0 ? (
+                                <p className="text-center text-slate-500 py-12 font-medium">No tasks found to summarize.</p>
+                            ) : (
+                                <div className="space-y-4">
+                                    {notes?.filter(n => n.category === "Tasks").map(task => (
+                                        <div key={task.id} className="flex items-start justify-between group p-4 rounded-2xl border border-slate-100 hover:border-slate-200 transition-all">
+                                            <div className="flex gap-3">
+                                                {task.completed ? (
+                                                    <CheckCircle2 className="h-5 w-5 text-emerald-500 mt-0.5" />
+                                                ) : (
+                                                    <div className="h-5 w-5 rounded-full border-2 border-slate-200 mt-0.5" />
+                                                )}
+                                                <div>
+                                                    <h4 className={`font-bold ${task.completed ? 'text-slate-400 line-through' : 'text-slate-900'}`}>{task.title}</h4>
+                                                    <p className="text-xs text-slate-500 line-clamp-1">{task.content}</p>
+                                                </div>
+                                            </div>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="opacity-0 group-hover:opacity-100 transition-opacity h-8 text-[10px] font-black uppercase"
+                                                onClick={() => {
+                                                    setIsReportOpen(false)
+                                                    handleOpenForm(task)
+                                                }}
+                                            >
+                                                Edit
+                                            </Button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="p-8 bg-slate-50 border-t border-slate-100">
+                        <Button 
+                            className="w-full h-14 rounded-2xl text-base font-black bg-slate-900 text-white hover:bg-slate-800 transition-all shadow-xl flex items-center justify-center gap-2"
+                            onClick={() => {
+                                const tasks = notes?.filter(n => n.category === "Tasks" && !n.completed) || []
+                                const reportDate = new Date().toLocaleDateString()
+                                let text = `*Report - ${reportDate}*\n\n`
+                                if (tasks.length === 0) {
+                                    text += "All caught up! No active tasks."
+                                } else {
+                                    text += "Active Tasks:\n"
+                                    tasks.forEach(t => {
+                                        text += `• ${t.title}\n`
+                                    })
+                                }
+                                window.open(`https://t.me/share/url?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent(text)}`, '_blank')
+                            }}
+                        >
+                            <Send className="h-5 w-5" />
+                            SEND TO TELEGRAM
+                        </Button>
                     </div>
                 </motion.div>
             </>
