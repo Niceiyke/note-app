@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { 
   Trash2, StickyNote, CheckCircle2, 
-  Briefcase, Home, Lightbulb, CheckSquare, BookOpen, Plus, X
+  Briefcase, Home, Lightbulb, CheckSquare, BookOpen, Plus, X, Calendar
 } from 'lucide-react'
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion'
 import { Button } from './components/ui/button'
@@ -17,6 +17,7 @@ interface Note {
   content: string
   category: string
   completed: boolean
+  due_date?: string
   created_at: string
 }
 
@@ -33,6 +34,7 @@ const CATEGORIES = [
 function NoteCard({ note, toggleComplete, deleteNote }: { note: Note, toggleComplete: (n: Note) => void, deleteNote: (id: number) => void }) {
   const x = useMotionValue(0)
   const rotate = useTransform(x, [-100, 100], [-5, 5])
+  const [isSelected, setIsSelected] = useState(false)
 
   const handleDragEnd = (_: any, info: any) => {
     if (info.offset.x > 80) {
@@ -59,13 +61,15 @@ function NoteCard({ note, toggleComplete, deleteNote }: { note: Note, toggleComp
         drag="x"
         dragConstraints={{ left: 0, right: 0 }}
         onDragEnd={handleDragEnd}
-        className="relative z-10 touch-pan-y"
+        onClick={() => setIsSelected(!isSelected)}
+        className="relative z-10 touch-pan-y cursor-pointer"
       >
         <Card className={`group relative h-full flex flex-col transition-all duration-200 border border-slate-200 shadow-sm hover:shadow-md rounded-xl
             ${note.completed ? 'bg-slate-50' : 'bg-white'}
+            ${isSelected ? 'ring-2 ring-slate-900 shadow-lg' : ''}
         `}>
           <div 
-            onClick={() => toggleComplete(note)}
+            onClick={(e) => { e.stopPropagation(); toggleComplete(note); }}
             className="absolute top-4 right-4 z-20 cursor-pointer"
           >
              {note.completed ? (
@@ -88,13 +92,23 @@ function NoteCard({ note, toggleComplete, deleteNote }: { note: Note, toggleComp
           
           <div className="px-5 pb-5 mt-4">
             <div className="flex items-center justify-between border-t border-slate-100 pt-4">
-                <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-100">
-                        {note.category}
-                    </span>
-                    <span className="text-[10px] font-medium text-slate-400">
-                        {new Date(note.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                    </span>
+                <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-100">
+                            {note.category}
+                        </span>
+                        <span className="text-[10px] font-medium text-slate-400">
+                            {new Date(note.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                        </span>
+                    </div>
+                    {isSelected && note.due_date && (
+                        <div className="flex items-center gap-1.5 text-rose-500">
+                            <Calendar className="h-3 w-3" />
+                            <span className="text-[10px] font-bold uppercase tracking-tight">
+                                Due {new Date(note.due_date).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                        </div>
+                    )}
                 </div>
                 <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Button
@@ -119,6 +133,7 @@ function App() {
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [category, setCategory] = useState(CATEGORIES[0].name)
+  const [dueDate, setDueDate] = useState('')
   const [statusFilter, setStatusFilter] = useState<"All" | "Active" | "Completed">("All")
   const [categoryFilter, setCategoryFilter] = useState<string>("All")
   const [isFormOpen, setIsFormOpen] = useState(false)
@@ -135,7 +150,7 @@ function App() {
   })
 
   const createNoteMutation = useMutation({
-    mutationFn: async (newNote: { title: string; content: string; category: string }) => {
+    mutationFn: async (newNote: { title: string; content: string; category: string; due_date?: string }) => {
       const response = await fetch(API_URL, {
         method: 'POST',
         headers: {
@@ -150,6 +165,7 @@ function App() {
       setTitle('')
       setContent('')
       setCategory(CATEGORIES[0].name)
+      setDueDate('')
       setIsFormOpen(false)
       toast.success('Note created successfully')
     },
@@ -194,7 +210,24 @@ function App() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!title.trim() || !content.trim()) return
-    createNoteMutation.mutate({ title, content, category })
+    
+    let formattedContent = content
+    if (category === "Tasks") {
+      formattedContent = content.split('\n').map(line => {
+        const trimmed = line.trim()
+        if (trimmed && !trimmed.startsWith('•') && !trimmed.startsWith('-') && !trimmed.startsWith('*')) {
+          return `• ${trimmed}`
+        }
+        return line
+      }).join('\n')
+    }
+
+    createNoteMutation.mutate({ 
+      title, 
+      content: formattedContent, 
+      category,
+      due_date: dueDate || undefined
+    })
   }
 
   const toggleComplete = (note: Note) => {
@@ -343,6 +376,7 @@ function App() {
       {/* Floating Action Button */}
       <button 
         onClick={() => setIsFormOpen(true)}
+        aria-label="Create Note"
         className="fixed bottom-8 right-8 h-16 w-16 bg-slate-900 text-white rounded-2xl shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-40 group"
       >
         <Plus className="h-8 w-8 group-hover:rotate-90 transition-transform duration-300" />
@@ -395,7 +429,12 @@ function App() {
                                         <button
                                             key={cat.name}
                                             type="button"
-                                            onClick={() => setCategory(cat.name)}
+                                            onClick={() => {
+                                                setCategory(cat.name)
+                                                if (cat.name === "Tasks" && content === "") {
+                                                    setContent('• ')
+                                                }
+                                            }}
                                             className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all border ${
                                                 category === cat.name
                                                     ? 'bg-slate-900 text-white border-slate-900 shadow-lg scale-105' 
@@ -409,11 +448,59 @@ function App() {
                                 </div>
                             </div>
 
+                            <div className="space-y-4">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Due Date</label>
+                                <div className="relative">
+                                    <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                    <Input
+                                        type="datetime-local"
+                                        value={dueDate}
+                                        onChange={(e) => setDueDate(e.target.value)}
+                                        className="pl-12 bg-slate-50 border-transparent focus:border-slate-200 rounded-xl h-12 text-sm font-bold text-slate-600"
+                                    />
+                                </div>
+                            </div>
+
                             <div className="space-y-2">
                                 <Textarea
                                     placeholder={placeholderText}
                                     value={content}
-                                    onChange={(e) => setContent(e.target.value)}
+                                    onChange={(e) => {
+                                        let val = e.target.value
+                                        if (category === "Tasks" && val.length === 1 && !val.startsWith('•')) {
+                                            val = '• ' + val
+                                        }
+                                        setContent(val)
+                                    }}
+                                    onKeyDown={(e) => {
+                                        if (category === "Tasks" && e.key === 'Enter') {
+                                            e.preventDefault()
+                                            const target = e.target as HTMLTextAreaElement
+                                            const start = target.selectionStart
+                                            const end = target.selectionEnd
+                                            const value = target.value
+                                            
+                                            const before = value.substring(0, start)
+                                            const after = value.substring(end)
+                                            
+                                            const lines = before.split('\n')
+                                            const currentLine = lines[lines.length - 1]
+                                            
+                                            if (currentLine.trim() === '•') {
+                                                const newBefore = lines.slice(0, -1).join('\n') + (lines.length > 1 ? '\n' : '')
+                                                setContent(newBefore + after)
+                                                setTimeout(() => {
+                                                    target.selectionStart = target.selectionEnd = newBefore.length
+                                                }, 0)
+                                            } else {
+                                                const newValue = before + '\n• ' + after
+                                                setContent(newValue)
+                                                setTimeout(() => {
+                                                    target.selectionStart = target.selectionEnd = start + 3
+                                                }, 0)
+                                            }
+                                        }
+                                    }}
                                     className="border-none bg-transparent p-0 text-lg font-medium text-slate-600 placeholder:text-slate-300 focus-visible:ring-0 min-h-[200px] resize-none"
                                 />
                             </div>

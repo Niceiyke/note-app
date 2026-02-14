@@ -7,6 +7,7 @@ class NoteBase(BaseModel):
     content: str
     category: Optional[str] = "General"
     completed: Optional[bool] = False
+    due_date: Optional[datetime] = None
 
 class NoteCreate(NoteBase):
     pass
@@ -16,6 +17,7 @@ class NoteUpdate(BaseModel):
     content: Optional[str] = None
     category: Optional[str] = None
     completed: Optional[bool] = None
+    due_date: Optional[datetime] = None
 
 class Note(NoteBase):
     id: int
