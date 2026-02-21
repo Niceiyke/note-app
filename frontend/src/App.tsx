@@ -10,6 +10,7 @@ import { Input } from './components/ui/input'
 import { Textarea } from './components/ui/textarea'
 import { Card, CardHeader, CardTitle } from './components/ui/card'
 import { Toaster, toast } from 'sonner'
+import { supabase } from './lib/supabase'
 
 interface Note {
   id: number
@@ -20,8 +21,6 @@ interface Note {
   due_date?: string
   created_at: string
 }
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/notes/'
 
 const CATEGORIES = [
   { name: "Work", icon: Briefcase },
@@ -81,7 +80,7 @@ function NoteCard({ note, toggleComplete, deleteNote, onEdit }: { note: Note, to
 
           <CardHeader className="pb-2 pt-5 px-5">
             <div className="flex flex-col gap-1.5">
-                <CardTitle className={`text-xl font-bold leading-tight text-slate-900 transition-colors line-clamp-2 ${note.completed ? 'text-slate-400' : ''}`}>
+                <CardTitle className={`text-xl font-black leading-tight text-slate-900 transition-colors line-clamp-2 ${note.completed ? 'text-slate-400' : ''}`}>
                     {note.title}
                 </CardTitle>
                 <p className={`whitespace-pre-wrap text-sm leading-relaxed text-slate-500 line-clamp-3 ${note.completed ? 'text-slate-300' : ''}`}>
@@ -151,25 +150,26 @@ function App() {
   const { data: notes, isLoading } = useQuery<Note[]>({
     queryKey: ['notes'],
     queryFn: async () => {
-      const response = await fetch(API_URL)
-      if (!response.ok) {
-        throw new Error('Network response was not ok')
-      }
-      return response.json()
+      const { data, error } = await supabase
+        .from('notes')
+        .select('*')
+        .order('created_at', { ascending: false })
+      
+      if (error) throw error
+      return data || []
     }
   })
 
   const createNoteMutation = useMutation({
     mutationFn: async (newNote: { title: string; content: string; category: string; due_date?: string; autoSave?: boolean }) => {
       const { autoSave, ...payload } = newNote
-      const response = await fetch(API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      })
-      const data = await response.json()
+      const { data, error } = await supabase
+        .from('notes')
+        .insert([payload])
+        .select()
+        .single()
+      
+      if (error) throw error
       return { ...data, autoSave }
     },
     onSuccess: (data) => {
@@ -185,15 +185,15 @@ function App() {
 
   const updateNoteMutation = useMutation({
     mutationFn: async (updatedNote: { id: number; title?: string; content?: string; category?: string; due_date?: string; completed?: boolean; autoSave?: boolean }) => {
-      const { autoSave, ...payload } = updatedNote
-      const response = await fetch(`${API_URL}/${updatedNote.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      })
-      const data = await response.json()
+      const { autoSave, id, ...payload } = updatedNote
+      const { data, error } = await supabase
+        .from('notes')
+        .update(payload)
+        .eq('id', id)
+        .select()
+        .single()
+      
+      if (error) throw error
       return { ...data, autoSave }
     },
     onSuccess: (data, variables) => {
@@ -209,9 +209,12 @@ function App() {
 
   const deleteNoteMutation = useMutation({
     mutationFn: async (id: number) => {
-      await fetch(`${API_URL}/${id}`, {
-        method: 'DELETE',
-      })
+      const { error } = await supabase
+        .from('notes')
+        .delete()
+        .eq('id', id)
+      
+      if (error) throw error
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notes'] })
@@ -358,7 +361,10 @@ function App() {
       {/* Header */}
       <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200">
         <div className="mx-auto max-w-5xl px-4 h-16 flex items-center justify-between">
-            <h1 className="text-xl font-black tracking-tight text-slate-900">NOTES</h1>
+            <div className="flex items-center gap-2.5">
+                <img src="/logo.svg" alt="Onote Logo" className="h-8 w-8 rounded-lg" />
+                <h1 className="text-xl font-black tracking-tight text-slate-900 uppercase">Onote</h1>
+            </div>
             <div className="flex items-center gap-4">
                 <Button 
                     variant="ghost" 
@@ -445,9 +451,9 @@ function App() {
                 <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-slate-100 mb-6">
                     <StickyNote className="h-10 w-10 text-slate-300" />
                 </div>
-                <h3 className="text-xl font-bold text-slate-900 mb-2">No notes here yet</h3>
+                <h3 className="text-xl font-black text-slate-900 mb-2">No notes here yet</h3>
                 <p className="text-slate-500 max-w-xs mx-auto mb-8">
-                    Create your first note to start organizing your thoughts and tasks.
+                    Create your first note to start organizing your thoughts and tasks with Onote.
                 </p>
                 <Button 
                     onClick={() => setIsFormOpen(true)}
@@ -507,7 +513,7 @@ function App() {
                     <div className="p-8">
                         <div className="flex items-center justify-between mb-8">
                             <div className="flex flex-col">
-                                <h2 className="text-2xl font-black text-slate-900">{editingNote ? 'EDIT' : 'NEW'} NOTE</h2>
+                                <h2 className="text-2xl font-black text-slate-900 uppercase">{editingNote ? 'EDIT' : 'NEW'} NOTE</h2>
                                 {isAutoSaving && <span className="text-[10px] font-black text-emerald-500 animate-pulse tracking-widest">AUTOSAVING DRAFT...</span>}
                             </div>
                             <button 
@@ -648,7 +654,7 @@ function App() {
                 >
                     <div className="p-8 flex-grow overflow-y-auto">
                         <div className="flex items-center justify-between mb-8 sticky top-0 bg-white pb-2">
-                            <h2 className="text-2xl font-black text-slate-900">TASK SUMMARY</h2>
+                            <h2 className="text-2xl font-black text-slate-900 uppercase">TASK SUMMARY</h2>
                             <button 
                                 onClick={() => setIsReportOpen(false)}
                                 className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center hover:bg-slate-200 transition-colors"
@@ -699,7 +705,7 @@ function App() {
                             onClick={() => {
                                 const tasks = notes?.filter(n => n.category === "Tasks" && !n.completed) || []
                                 const reportDate = new Date().toLocaleDateString()
-                                let text = `*Report - ${reportDate}*\n\n`
+                                let text = `*Onote Report - ${reportDate}*\n\n`
                                 if (tasks.length === 0) {
                                     text += "All caught up! No active tasks."
                                 } else {
