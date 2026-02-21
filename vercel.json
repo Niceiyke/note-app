@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index.ts"
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/api",
+      "destination": "/api/health"
+    }
+  ]
+}

@@ -1,24 +1,14 @@
 version: '3.8'
 
 services:
-  note-app-db:
-    image: postgres:15-alpine
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=password
-      - POSTGRES_DB=notes_db
-    networks:
-      - internal
-
   backend:
     build: ./backend
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
       - ./backend:/app
+      - /app/node_modules
     environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres:password@note-app-db/notes_db
+      - DATABASE_URL=${DATABASE_URL}
+      - DIRECT_URL=${DIRECT_URL}
     networks:
       - internal
       - edge
@@ -28,8 +18,6 @@ services:
       - "traefik.http.routers.note-app-backend.entrypoints=websecure"
       - "traefik.http.routers.note-app-backend.tls.certresolver=myresolver"
       - "traefik.http.services.note-app-backend.loadbalancer.server.port=8000"
-    depends_on:
-      - note-app-db
 
   frontend:
     build: ./frontend
@@ -52,6 +40,3 @@ networks:
   internal:
   edge:
     external: true
-
-volumes:
-  postgres_data:

@@ -1,10 +1,18 @@
-FROM python:3.11-slim
+FROM node:18-slim
+
+# Install openssl for Prisma
+RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY package*.json ./
+RUN npm install
 
 COPY . .
+RUN npx prisma generate
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+EXPOSE 8000
+
+# We use a shell script or a complex command to ensure DB is ready if needed, 
+# but for now let's just use npm run dev
+CMD ["/app/start.sh"]
