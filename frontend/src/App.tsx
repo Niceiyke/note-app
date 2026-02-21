@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { 
   Trash2, StickyNote, CheckCircle2, 
   Briefcase, Home, Lightbulb, CheckSquare, BookOpen, Plus, X, Calendar, Send,
-  LogOut, User as UserIcon
+  LogOut
 } from 'lucide-react'
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion'
 import { Button } from './components/ui/button'
@@ -13,7 +13,7 @@ import { Card, CardHeader, CardTitle } from './components/ui/card'
 import { Toaster, toast } from 'sonner'
 import { supabase } from './lib/supabase'
 import { Landing } from './components/Landing'
-import type { Session, User } from '@supabase/supabase-js'
+import type { Session } from '@supabase/supabase-js'
 
 interface Note {
   id: number

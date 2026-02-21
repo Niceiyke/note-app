@@ -4,7 +4,6 @@ import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { toast } from 'sonner'
 import { LogIn, UserPlus, Loader2, Mail, Lock } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
 
 export function Auth() {
   const [loading, setLoading] = useState(false)
