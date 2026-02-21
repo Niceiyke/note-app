@@ -2,7 +2,8 @@ import { useState, useMemo, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { 
   Trash2, StickyNote, CheckCircle2, 
-  Briefcase, Home, Lightbulb, CheckSquare, BookOpen, Plus, X, Calendar, Send
+  Briefcase, Home, Lightbulb, CheckSquare, BookOpen, Plus, X, Calendar, Send,
+  LogOut, User as UserIcon
 } from 'lucide-react'
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion'
 import { Button } from './components/ui/button'
@@ -11,6 +12,8 @@ import { Textarea } from './components/ui/textarea'
 import { Card, CardHeader, CardTitle } from './components/ui/card'
 import { Toaster, toast } from 'sonner'
 import { supabase } from './lib/supabase'
+import { Landing } from './components/Landing'
+import type { Session, User } from '@supabase/supabase-js'
 
 interface Note {
   id: number
@@ -20,6 +23,7 @@ interface Note {
   completed: boolean
   due_date?: string
   created_at: string
+  user_id: string
 }
 
 const CATEGORIES = [
@@ -135,7 +139,7 @@ function NoteCard({ note, toggleComplete, deleteNote, onEdit }: { note: Note, to
   )
 }
 
-function App() {
+function Dashboard({ session }: { session: Session }) {
   const queryClient = useQueryClient()
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
@@ -146,13 +150,17 @@ function App() {
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingNote, setEditingNote] = useState<Note | null>(null)
   const [isReportOpen, setIsReportOpen] = useState(false)
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   
+  const user = session.user
+
   const { data: notes, isLoading } = useQuery<Note[]>({
-    queryKey: ['notes'],
+    queryKey: ['notes', user.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('notes')
         .select('*')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
       
       if (error) throw error
@@ -165,7 +173,7 @@ function App() {
       const { autoSave, ...payload } = newNote
       const { data, error } = await supabase
         .from('notes')
-        .insert([payload])
+        .insert([{ ...payload, user_id: user.id }])
         .select()
         .single()
       
@@ -173,7 +181,7 @@ function App() {
       return { ...data, autoSave }
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['notes'] })
+      queryClient.invalidateQueries({ queryKey: ['notes', user.id] })
       if (!data.autoSave) {
         handleCloseForm()
         toast.success('Note created successfully')
@@ -190,6 +198,7 @@ function App() {
         .from('notes')
         .update(payload)
         .eq('id', id)
+        .eq('user_id', user.id)
         .select()
         .single()
       
@@ -197,7 +206,7 @@ function App() {
       return { ...data, autoSave }
     },
     onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['notes'] })
+      queryClient.invalidateQueries({ queryKey: ['notes', user.id] })
       if (variables.completed !== undefined) {
         toast.success(variables.completed ? 'Note completed' : 'Note active')
       } else if (!data.autoSave) {
@@ -213,11 +222,12 @@ function App() {
         .from('notes')
         .delete()
         .eq('id', id)
+        .eq('user_id', user.id)
       
       if (error) throw error
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notes'] })
+      queryClient.invalidateQueries({ queryKey: ['notes', user.id] })
       toast.success('Note deleted')
     },
   })
@@ -354,10 +364,14 @@ function App() {
     }
   }, [category])
 
+  const handleSignOut = async () => {
+    const { error } = await supabase.auth.signOut()
+    if (error) toast.error(error.message)
+    else toast.success('Signed out successfully')
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pb-24">
-      <Toaster position="top-center" />
-      
       {/* Header */}
       <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200">
         <div className="mx-auto max-w-5xl px-4 h-16 flex items-center justify-between">
@@ -370,15 +384,42 @@ function App() {
                     variant="ghost" 
                     size="sm" 
                     onClick={() => setIsReportOpen(true)}
-                    className="text-[10px] font-bold text-slate-600 uppercase tracking-widest hover:bg-slate-100"
+                    className="text-[10px] font-bold text-slate-600 uppercase tracking-widest hover:bg-slate-100 hidden sm:flex"
                 >
                     Report
                 </Button>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                    {filteredNotes?.length || 0} Total
-                </span>
-                <div className="h-8 w-8 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-bold">
-                    NI
+                <div className="relative">
+                    <button 
+                        onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                        className="h-10 w-10 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-bold hover:scale-105 transition-transform"
+                    >
+                        {user.email?.[0].toUpperCase()}
+                    </button>
+                    
+                    <AnimatePresence>
+                        {isUserMenuOpen && (
+                            <>
+                                <div className="fixed inset-0 z-40" onClick={() => setIsUserMenuOpen(false)}></div>
+                                <motion.div 
+                                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                    className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-2xl border border-slate-100 py-2 z-50"
+                                >
+                                    <div className="px-4 py-3 border-b border-slate-50">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Signed in as</p>
+                                        <p className="text-xs font-bold text-slate-900 truncate">{user.email}</p>
+                                    </div>
+                                    <button 
+                                        onClick={handleSignOut}
+                                        className="w-full flex items-center gap-2 px-4 py-3 text-xs font-bold text-red-500 hover:bg-red-50 transition-colors"
+                                    >
+                                        <LogOut className="h-4 w-4" /> Sign Out
+                                    </button>
+                                </motion.div>
+                            </>
+                        )}
+                    </AnimatePresence>
                 </div>
             </div>
         </div>
@@ -726,6 +767,60 @@ function App() {
         )}
       </AnimatePresence>
     </div>
+  )
+}
+
+function App() {
+  const [session, setSession] = useState<Session | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+      setLoading(false)
+    })
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center gap-4">
+        <motion.img 
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ repeat: Infinity, repeatType: "reverse", duration: 1 }}
+          src="/logo.svg" 
+          alt="Onote" 
+          className="h-16 w-16" 
+        />
+        <div className="h-1 w-32 bg-slate-200 rounded-full overflow-hidden">
+          <motion.div 
+            initial={{ x: "-100%" }}
+            animate={{ x: "100%" }}
+            transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+            className="h-full w-full bg-slate-900"
+          />
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <Toaster position="top-center" richColors />
+      {!session ? (
+        <Landing />
+      ) : (
+        <Dashboard session={session} />
+      )}
+    </>
   )
 }
 
